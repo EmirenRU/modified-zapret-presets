@@ -1,0 +1,29 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Create 7z archive
+      run: |
+        7z a -mx=9 -m0=lzma2 modified-zapret-presets.7z ./bin/ ./lists/ LICENSE Main.bat README.md RESET.bat service.bat
+
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v1 #
+      with:
+        tag_name: ${{ github.ref_name }}
+        files: docker-build.7z
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
