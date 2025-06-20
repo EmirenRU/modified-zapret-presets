@@ -24,6 +24,6 @@ jobs:
       uses: softprops/action-gh-release@v1 #
       with:
         tag_name: ${{ github.ref_name }}
-        files: docker-build.7z
+        files: modified-zapret-presets.7z
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
