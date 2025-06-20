@@ -1,0 +1,12 @@
+x.com
+abs.twimg.com
+abs-0.twimg.com
+pbs.twimg.com
+twitter.com
+abs-0.twimg.com
+api.x.com
+api.twitter.com
+abs-zero.twimg.com
+twimg.com
+*.twimg.com
+video.twimg.com
