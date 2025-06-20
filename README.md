@@ -1,6 +1,6 @@
 # modified-zapret-presets
 
-- Это репозиторий основан на работе Flowseal/zapret-discord-youtube и bol-van/zapret с добавлением пресетов на Youtube, Pixiv, Discord, Twitter, и все остальное. 
+- Это репозиторий основан на работах Flowseal/zapret-discord-youtube и bol-van/zapret с добавлением пресетов на Youtube, Pixiv, Discord, Twitter, и все остальное. 
 
 ## Дисклеймер
 
