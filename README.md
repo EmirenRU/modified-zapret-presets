@@ -23,8 +23,8 @@
 
 ## Refs
 
-![ Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube)
-![bol-van/zapret](https://github.com/bol-van/zapret)
+1. ![ Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube)
+2. ![bol-van/zapret](https://github.com/bol-van/zapret)
 
 <div align="center">
 
