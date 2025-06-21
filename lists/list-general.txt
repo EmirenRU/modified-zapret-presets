@@ -1,4 +1,3 @@
-
 static-beta.curseforge.com
 sg-hyp-api.hoyoverse.com
 cf-ns.net
@@ -7,6 +6,7 @@ picdn.net
 cloudflare-ok.com
 spring.io
 cloudflare-portal.com
+diffchecker.com
 nikke-kr.com
 trycloudflare.com
 mirahaze.org
@@ -14,7 +14,6 @@ googleplaygiftcard.ru
 nexusmods.com
 spotify.com
 audio4-ak-spotify-com.akamaized.net
-googlevideo.com
 youtubei.googleapis.com
 sirus.su
 opennic.glue
@@ -193,6 +192,7 @@ tuta.com
 ctldl.windowsupdate.com
 subscriptions-api.overwolf.com
 ggpht.com
+stackoverflow.com
 images-eds-ssl.xboxlive.com
 cloudflareanycast.net
 spotify.de
@@ -303,6 +303,7 @@ mp.microsoft.com
 daocloud.io"
 cf-ns.com
 updates.overwolf.com
+pages.dev
 dns.de.futuredns.eu.org
 tpucdn.com
 maa.plus
