@@ -39673,6 +39673,10 @@ pavanmrindia.com
 hochuzhit.space
 telegrum.ru
 hoyoverse.com
+yuanshen.com
+hk4e-sdk-os.hoyoverse.com
+abtest-api-data-sg.hoyoverse.com
+sdk-os-static.hoyoverse.com
 lordseriall.fun
 art-akvagrim.ru
 flawlesscore.site
@@ -116790,6 +116794,7 @@ landkoztrade.com
 animego.ink
 ollama.com
 pkgbuild.com
+obsidian.md
 woulkans.com
 freeridevolsk.ru
 v79.ru
@@ -117349,6 +117354,11 @@ banzai-bet.ru
 jasvetion.space
 dojki-vip.com
 developer.nvidia.com
+jc5gpa3gs7o2uge6iq5mgjd53q0daomi.lambda-url.us-east-1.on.aws
+us-east-1.on.aws
+*.on.aws
+on.aws
+lambda-url.us-east-1.on.aws
 gogamex2b.ru
 fintechnika.ru
 volkslot.com
