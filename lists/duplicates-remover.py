@@ -1,3 +1,7 @@
+# The script is created by Emiren
+# It utilizes a set container to contain all unique names, which leads to shuffle
+# To run script, execute `python file.py` from the directory, for example, /lists
+
 import os
 
 def get_lists_of_files(directory):
