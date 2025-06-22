@@ -5,6 +5,8 @@ spotify.co.uk
 picdn.net
 cloudflare-ok.com
 spring.io
+idp.com
+jsdelivr.net
 cloudflare-portal.com
 diffchecker.com
 nikke-kr.com
@@ -94,6 +96,7 @@ returnyoutubedislikeapi.com
 yt4.ggpht.com
 cloudflare-ssl.com
 cdn.highwinds.steamstatic.com
+steamstatic.com
 data-abtest-api.hoyoverse.com
 icdn.ru
 tchkcdn.com
@@ -256,6 +259,14 @@ battle.net
 steamgriddb.com
 eacdn.com
 steampowered.com
+steamserver.net
+dnschecker.org
+haoplay.com
+sunborngame.com
+17996api.com
+17996api.net
+17996cdn.net
+aliyun.com
 live.com
 cloudflare.com
 cdn.betterttv.net
