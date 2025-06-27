@@ -48,6 +48,10 @@ us-datareceiver.aki-game.net
 videodelivery.net
 cf-ns.tech
 microsoft.com
+trafficmanager.net
+cqloud.com
+ctldl.windowsupdate.com
+akamai.net
 worldofgothic.de
 cdn.akamai.steamstatic.com
 cloudflare.net
@@ -196,6 +200,11 @@ ctldl.windowsupdate.com
 subscriptions-api.overwolf.com
 ggpht.com
 stackoverflow.com
+azurgames.com
+cloudapp.azure.com
+azure.com
+selstorage.ru
+xboxlive.com
 images-eds-ssl.xboxlive.com
 cloudflareanycast.net
 spotify.de
@@ -254,6 +263,8 @@ cftest7.com
 staticcdn.duckduckgo.com
 github.com
 gamepass.com
+gofile.io
+windowsupdate.com
 twitchcdn.net
 battle.net
 steamgriddb.com
@@ -414,6 +425,7 @@ google.com
 steam.cdn.webra.ru
 ytimg.l.google.com
 storeedgefd.dsx.mp.microsoft.com
+edgesuite.net
 spotify.com.edgesuite.net
 aus5.mozilla.org
 vangoogle.ru
