@@ -4,7 +4,10 @@
 84.235.64.145 r6.sn-nuj-g0ik.googlevideo.com
 1.254.179.44 r1---sn-n3cgv5qc5oq-20nl.googlevideo.com
 41.78.74.108 r1---sn-ivgh00qnv-hb9e.googlevideo.com
+74.125.163.135 rr2.sn-4g5lzney.googlevideo.com
+74.125.163.135 rr2---sn-4g5lzney.googlevideo.com
 173.194.189.36 r18.sn-3c27sn7y.googlevideo.com
+173.194.180.151 rr5---sn-n8v7knes.googlevideo.com
 190.232.140.79 r4.sn-uqx2-aphez.googlevideo.com
 120.253.253.2 r1.sn-ni5een7l.googlevideo.com
 113.171.240.210 r3---sn-8qj-i5ozd.googlevideo.com

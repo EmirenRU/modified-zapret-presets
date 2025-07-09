@@ -1,4 +1,3 @@
-
 dis.gd
 discord.gg
 discord.gift

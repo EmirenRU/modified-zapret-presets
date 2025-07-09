@@ -15,7 +15,6 @@ def check_ip(f):
     with Pool() as pool:
         results = pool.map(resolve_ip, urls)
 
-
     with open(f + '-clean.txt', 'w') as file:
         for result in results:
             if result:

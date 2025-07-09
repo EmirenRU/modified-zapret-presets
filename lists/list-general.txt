@@ -52,6 +52,7 @@ trafficmanager.net
 cqloud.com
 ctldl.windowsupdate.com
 akamai.net
+nexon.com
 worldofgothic.de
 cdn.akamai.steamstatic.com
 cloudflare.net
@@ -144,6 +145,10 @@ spotify.co
 c.163.com
 cloudflare-warp.com
 cdn.discordapp.com
+steamcontent.com
+chatgpt.com
+oaistatic.com
+oaiusercontent.com
 *.on.aws
 techpowerup.com
 spt-releases.modd.in
@@ -173,6 +178,9 @@ kurogame-service.com
 annacdn.cc
 plantuml.net
 itch.io
+itch.zone
+bestchange.ru
+openai.com
 console-api.overwolf.com
 ielts.com
 noads.libredns.gr
@@ -280,6 +288,7 @@ sunborngame.com
 aliyun.com
 live.com
 cloudflare.com
+scdn.co
 cdn.betterttv.net
 sndcdn.com
 *.ytimg.com
@@ -301,6 +310,10 @@ gstatic.com
 us-east-1.on.aws
 cloudflareperf.com
 ogs.google.com
+aistudio.google.com
+gemini.google.com
+google.com
+pki.goog
 cloudflare-status.com
 xn----ttbicdn.xn--80adxhks
 libredns.gr
@@ -398,6 +411,8 @@ cdn.frankerfacez.com
 loverslab.com
 lcdn.to
 nvidia.com
+vercel.app
+edgekey.net
 betterttv.net
 akamaiedge.net
 duck.ai
