@@ -9,6 +9,7 @@ echo:
 
 set "BIN=%~dp0bin\"
 set "LISTS=%~dp0lists\"
+cd /d %BIN%
 
 start "zapret: %~n0" /min "%BIN%winws.exe" --wf-tcp=80,443,%GameFilter% --wf-udp=443,50000-50100,%GameFilter% ^
 --filter-udp=50000-50100 --filter-l7=discord,stun --dpi-desync=fake --dpi-desync-repeats=6 --new ^
