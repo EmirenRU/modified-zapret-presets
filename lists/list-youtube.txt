@@ -1,2 +1,9 @@
-
 googlevideo.com
+i.ytimg.com
+youtube.com
+*.ytimg.com
+ytimg.l.google.com
+yt3.ggpht.com
+*.ggpht.com
+yt4.ggpht.com
+ggpht.com

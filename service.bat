@@ -1,16 +1,17 @@
 @echo off
-set "LOCAL_VERSION=1.8.3"
+set "LOCAL_VERSION=1.8.5"
 
 :: External commands
 if "%~1"=="status_zapret" (
     call :test_service zapret soft
+    call :tcp_enable
     exit /b
 )
 
 if "%~1"=="check_updates" (
     if not "%~2"=="soft" (
         start /b service check_updates soft
-    ) else ( 
+    ) else (
         call :service_check_updates soft
     )
     exit /b
@@ -27,7 +28,7 @@ if "%1"=="admin" (
 ) else (
     echo Requesting admin rights...
     powershell -Command "Start-Process 'cmd.exe' -ArgumentList '/c \"\"%~f0\" admin\"' -Verb RunAs"
-    exit /b
+    exit
 )
 
 
@@ -39,7 +40,7 @@ call :ipset_switch_status
 call :game_switch_status
 
 set "menu_choice=null"
-echo =======================
+echo =========  v!LOCAL_VERSION!  =========
 echo 1. Install Service
 echo 2. Remove Services
 echo 3. Check Status
@@ -63,19 +64,31 @@ if "%menu_choice%"=="0" exit /b
 goto menu
 
 
+:: TCP ENABLE ==========================
+:tcp_enable
+netsh interface tcp show global | findstr /i "timestamps" | findstr /i "enabled" > nul || netsh interface tcp set global timestamps=enabled > nul 2>&1
+exit /b
+
+
 :: STATUS ==============================
 :service_status
 cls
 chcp 437 > nul
-for /f "tokens=2*" %%A in ('reg query "HKLM\System\CurrentControlSet\Services\zapret" /v zapret-discord-youtube 2^>nul') do echo Service strategy installed from "%%B"
+
+sc query "zapret" >nul 2>&1
+if !errorlevel!==0 (
+    for /f "tokens=2*" %%A in ('reg query "HKLM\System\CurrentControlSet\Services\zapret" /v zapret-discord-youtube 2^>nul') do echo Service strategy installed from "%%B"
+)
+
 call :test_service zapret
 call :test_service WinDivert
+echo:
 
 tasklist /FI "IMAGENAME eq winws.exe" | find /I "winws.exe" > nul
 if !errorlevel!==0 (
-    call :PrintGreen "Bypass is ACTIVE"
+    call :PrintGreen "Bypass (winws.exe) is ACTIVE"
 ) else (
-    call :PrintRed "Bypass NOT FOUND"
+    call :PrintRed "Bypass (winws.exe) NOT FOUND"
 )
 
 pause
@@ -96,6 +109,8 @@ if "%ServiceStatus%"=="RUNNING" (
     ) else (
         echo "%ServiceName%" service is RUNNING.
     )
+) else if "%ServiceStatus%"=="STOP_PENDING" (
+    call :PrintYellow "!ServiceName! is STOP_PENDING, that may be caused by a conflict with another bypass. Run Diagnostics to try to fix conflicts"
 ) else if not "%~2"=="soft" (
     echo "%ServiceName%" service is NOT running.
 )
@@ -109,13 +124,30 @@ cls
 chcp 65001 > nul
 
 set SRVCNAME=zapret
-net stop %SRVCNAME%
-sc delete %SRVCNAME%
+sc query "!SRVCNAME!" >nul 2>&1
+if !errorlevel!==0 (
+    net stop %SRVCNAME%
+    sc delete %SRVCNAME%
+) else (
+    echo Service "%SRVCNAME%" is not installed.
+)
 
-net stop "WinDivert"
-sc delete "WinDivert"
-net stop "WinDivert14"
-sc delete "WinDivert14"
+tasklist /FI "IMAGENAME eq winws.exe" | find /I "winws.exe" > nul
+if !errorlevel!==0 (
+    taskkill /IM winws.exe /F > nul
+)
+
+sc query "WinDivert" >nul 2>&1
+if !errorlevel!==0 (
+    net stop "WinDivert"
+
+    sc query "WinDivert" >nul 2>&1
+    if !errorlevel!==0 (
+        sc delete "WinDivert"
+    )
+)
+net stop "WinDivert14" >nul 2>&1
+sc delete "WinDivert14" >nul 2>&1
 
 pause
 goto menu
@@ -156,7 +188,7 @@ if not defined selectedFile (
 )
 
 :: Args that should be followed by value
-set "args_with_value=sni"
+set "args_with_value=sni host altorder"
 
 :: Parsing args (mergeargs: 2=start param|3=arg with value|1=params args|0=default)
 set "args="
@@ -166,6 +198,7 @@ set QUOTE="
 
 for /f "tokens=*" %%a in ('type "!selectedFile!"') do (
     set "line=%%a"
+    call set "line=%%line:^!=EXCL_MARK%%"
 
     echo !line! | findstr /i "%BIN%winws.exe" >nul
     if not errorlevel 1 (
@@ -216,9 +249,9 @@ for /f "tokens=*" %%a in ('type "!selectedFile!"') do (
 
                 if "!arg:~0,2!" EQU "--" (
                     set "mergeargs=2"
-                ) else if !mergeargs!==2 (
-                    set "mergeargs=1"
-                ) else if !mergeargs!==1 (
+                ) else if !mergeargs! GEQ 1 (
+                    if !mergeargs!==2 set "mergeargs=1"
+
                     for %%x in (!args_with_value!) do (
                         if /i "%%x"=="!arg!" (
                             set "mergeargs=3"
@@ -235,19 +268,23 @@ for /f "tokens=*" %%a in ('type "!selectedFile!"') do (
 )
 
 :: Creating service with parsed args
+call :tcp_enable
+
 set ARGS=%args%
+call set "ARGS=%%ARGS:EXCL_MARK=^!%%"
 echo Final args: !ARGS!
 set SRVCNAME=zapret
 
 net stop %SRVCNAME% >nul 2>&1
 sc delete %SRVCNAME% >nul 2>&1
-sc create %SRVCNAME% binPath= "\"%BIN_PATH%winws.exe\" %ARGS%" DisplayName= "zapret" start= auto
+sc create %SRVCNAME% binPath= "\"%BIN_PATH%winws.exe\" !ARGS!" DisplayName= "zapret" start= auto
 sc description %SRVCNAME% "Zapret DPI bypass software"
 sc start %SRVCNAME%
 for %%F in ("!file%choice%!") do (
     set "filename=%%~nF"
 )
-reg add "HKLM\System\CurrentControlSet\Services\zapret" /v zapret-discord-youtube /t REG_SZ /d "!filename!" /f 
+reg add "HKLM\System\CurrentControlSet\Services\zapret" /v zapret-discord-youtube /t REG_SZ /d "!filename!" /f
+
 pause
 goto menu
 
@@ -267,9 +304,9 @@ for /f "delims=" %%A in ('powershell -command "(Invoke-WebRequest -Uri \"%GITHUB
 
 :: Error handling
 if not defined GITHUB_VERSION (
-    echo Warning: failed to fetch the latest version. Check your internet connection. This warning does not affect the operation of zapret
-    pause
-    if "%1"=="soft" exit
+    echo Warning: failed to fetch the latest version. This warning does not affect the operation of zapret
+    timeout /T 9
+    if "%1"=="soft" exit 
     goto menu
 )
 
@@ -277,7 +314,7 @@ if not defined GITHUB_VERSION (
 if "%LOCAL_VERSION%"=="%GITHUB_VERSION%" (
     echo Latest version installed: %LOCAL_VERSION%
     
-    if "%1"=="soft" exit
+    if "%1"=="soft" exit 
     pause
     goto menu
 ) 
@@ -296,15 +333,60 @@ if /i "%CHOICE%"=="Y" (
 )
 
 
-if "%1"=="soft" exit
+if "%1"=="soft" exit 
 pause
 goto menu
+
 
 
 :: DIAGNOSTICS =========================
 :service_diagnostics
 chcp 437 > nul
 cls
+
+:: Base Filtering Engine
+sc query BFE | findstr /I "RUNNING" > nul
+if !errorlevel!==0 (
+    call :PrintGreen "Base Filtering Engine check passed"
+) else (
+    call :PrintRed "[X] Base Filtering Engine is not running. This service is required for zapret to work"
+)
+echo:
+
+:: Proxy check
+set "proxyEnabled=0"
+set "proxyServer="
+
+for /f "tokens=2*" %%A in ('reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyEnable 2^>nul ^| findstr /i "ProxyEnable"') do (
+    if "%%B"=="0x1" set "proxyEnabled=1"
+)
+
+if !proxyEnabled!==1 (
+    for /f "tokens=2*" %%A in ('reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyServer 2^>nul ^| findstr /i "ProxyServer"') do (
+        set "proxyServer=%%B"
+    )
+    
+    call :PrintYellow "[?] System proxy is enabled: !proxyServer!"
+    call :PrintYellow "Make sure it's valid or disable it if you don't use a proxy"
+) else (
+    call :PrintGreen "Proxy check passed"
+)
+echo:
+
+:: TCP timestamps check
+netsh interface tcp show global | findstr /i "timestamps" | findstr /i "enabled" > nul
+if !errorlevel!==0 (
+    call :PrintGreen "TCP timestamps check passed"
+) else (
+    call :PrintYellow "[?] TCP timestamps are disabled. Enabling timestamps..."
+    netsh interface tcp set global timestamps=enabled > nul 2>&1
+    if !errorlevel!==0 (
+        call :PrintGreen "TCP timestamps successfully enabled"
+    ) else (
+        call :PrintRed "[X] Failed to enable TCP timestamps"
+    )
+)
+echo:
 
 :: AdguardSvc.exe
 tasklist /FI "IMAGENAME eq AdguardSvc.exe" | find /I "AdguardSvc.exe" > nul
@@ -377,20 +459,120 @@ if !errorlevel!==0 (
 echo:
 
 :: DNS
-set "dnsfound=0"
-for /f "skip=1 tokens=*" %%a in ('wmic nicconfig where "IPEnabled=true" get DNSServerSearchOrder /format:table') do (
-    echo %%a | findstr /i "192.168." >nul
-    if !errorlevel!==0 (
-        set "dnsfound=1"
+set "dohfound=0"
+for /f "delims=" %%a in ('powershell -Command "Get-ChildItem -Recurse -Path 'HKLM:System\CurrentControlSet\Services\Dnscache\InterfaceSpecificParameters\' | Get-ItemProperty | Where-Object { $_.DohFlags -gt 0 } | Measure-Object | Select-Object -ExpandProperty Count"') do (
+    if %%a gtr 0 (
+        set "dohfound=1"
     )
 )
-if !dnsfound!==1 (
-    call :PrintYellow "[?] DNS servers are probably not specified."
-    call :PrintYellow "Provider's DNS servers are automatically used, which may affect zapret. It is recommended to install well-known DNS servers and setup DoH"
+if !dohfound!==0 (
+    call :PrintYellow "[?] Make sure you have configured secure DNS in a browser with some non-default DNS service provider,"
+    call :PrintYellow "If you use Windows 11 you can configure encrypted DNS in the Settings to hide this warning"
 ) else (
-    call :PrintGreen "DNS check passed"
+    call :PrintGreen "Secure DNS check passed"
 )
 echo:
+
+:: WinDivert conflict
+tasklist /FI "IMAGENAME eq winws.exe" | find /I "winws.exe" > nul
+set "winws_running=!errorlevel!"
+
+sc query "WinDivert" | findstr /I "RUNNING STOP_PENDING" > nul
+set "windivert_running=!errorlevel!"
+
+if !winws_running! neq 0 if !windivert_running!==0 (
+    call :PrintYellow "[?] winws.exe is not running but WinDivert service is active. Attempting to delete WinDivert..."
+    
+    net stop "WinDivert" >nul 2>&1
+    sc delete "WinDivert" >nul 2>&1
+    sc query "WinDivert" >nul 2>&1
+    if !errorlevel!==0 (
+        call :PrintRed "[X] Failed to delete WinDivert. Checking for conflicting services..."
+        
+        set "conflicting_services=GoodbyeDPI"
+        set "found_conflict=0"
+        
+        for %%s in (!conflicting_services!) do (
+            sc query "%%s" >nul 2>&1
+            if !errorlevel!==0 (
+                call :PrintYellow "[?] Found conflicting service: %%s. Stopping and removing..."
+                net stop "%%s" >nul 2>&1
+                sc delete "%%s" >nul 2>&1
+                if !errorlevel!==0 (
+                    call :PrintGreen "Successfully removed service: %%s"
+                ) else (
+                    call :PrintRed "[X] Failed to remove service: %%s"
+                )
+                set "found_conflict=1"
+            )
+        )
+        
+        if !found_conflict!==0 (
+            call :PrintRed "[X] No conflicting services found. Check manually if any other bypass is using WinDivert."
+        ) else (
+            call :PrintYellow "[?] Attempting to delete WinDivert again..."
+
+            net stop "WinDivert" >nul 2>&1
+            sc delete "WinDivert" >nul 2>&1
+            sc query "WinDivert" >nul 2>&1
+            if !errorlevel! neq 0 (
+                call :PrintGreen "WinDivert successfully deleted after removing conflicting services"
+            ) else (
+                call :PrintRed "[X] WinDivert still cannot be deleted. Check manually if any other bypass is using WinDivert."
+            )
+        )
+    ) else (
+        call :PrintGreen "WinDivert successfully removed"
+    )
+    
+    echo:
+)
+
+:: Conflicting bypasses
+set "conflicting_services=GoodbyeDPI discordfix_zapret winws1 winws2"
+set "found_any_conflict=0"
+set "found_conflicts="
+
+for %%s in (!conflicting_services!) do (
+    sc query "%%s" >nul 2>&1
+    if !errorlevel!==0 (
+        if "!found_conflicts!"=="" (
+            set "found_conflicts=%%s"
+        ) else (
+            set "found_conflicts=!found_conflicts! %%s"
+        )
+        set "found_any_conflict=1"
+    )
+)
+
+if !found_any_conflict!==1 (
+    call :PrintRed "[X] Conflicting bypass services found: !found_conflicts!"
+    
+    set "CHOICE="
+    set /p "CHOICE=Do you want to remove these conflicting services? (Y/N) (default: N) "
+    if "!CHOICE!"=="" set "CHOICE=N"
+    if "!CHOICE!"=="y" set "CHOICE=Y"
+    
+    if /i "!CHOICE!"=="Y" (
+        for %%s in (!found_conflicts!) do (
+            call :PrintYellow "Stopping and removing service: %%s"
+            net stop "%%s" >nul 2>&1
+            sc delete "%%s" >nul 2>&1
+            if !errorlevel!==0 (
+                call :PrintGreen "Successfully removed service: %%s"
+            ) else (
+                call :PrintRed "[X] Failed to remove service: %%s"
+            )
+        )
+
+        net stop "WinDivert" >nul 2>&1
+        sc delete "WinDivert" >nul 2>&1
+        net stop "WinDivert14" >nul 2>&1
+        sc delete "WinDivert14" >nul 2>&1
+    )
+    
+    echo:
+)
 
 :: Discord cache clearing
 set "CHOICE="
@@ -470,7 +652,7 @@ goto menu
 :ipset_switch_status
 chcp 437 > nul
 
-findstr /R "^0\.0\.0\.0/32$" "%~dp0lists\ipset-all.txt" >nul
+findstr /R "^203\.0\.113\.113/32$" "%~dp0lists\ipset-all.txt" >nul
 if !errorlevel!==0 (
     set "IPsetStatus=empty"
 ) else (
@@ -486,7 +668,7 @@ cls
 set "listFile=%~dp0lists\ipset-all.txt"
 set "backupFile=%listFile%.backup"
 
-findstr /R "^0\.0\.0\.0/32$" "%listFile%" >nul
+findstr /R "^203\.0\.113\.113/32$" "%listFile%" >nul
 if !errorlevel!==0 (
     echo Enabling ipset based bypass...
 
@@ -508,7 +690,7 @@ if !errorlevel!==0 (
     )
 
     >"%listFile%" (
-        echo 0.0.0.0/32
+        echo 203.0.113.113/32
     )
 )
 
