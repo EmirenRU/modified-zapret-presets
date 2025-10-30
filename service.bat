@@ -622,7 +622,7 @@ set "gameFlagFile=%~dp0bin\game_filter.enabled"
 
 if exist "%gameFlagFile%" (
     set "GameFilterStatus=enabled"
-    set "GameFilter=1024-65535"
+    set "GameFilter=444-65535"
 ) else (
     set "GameFilterStatus=disabled"
     set "GameFilter=12"
