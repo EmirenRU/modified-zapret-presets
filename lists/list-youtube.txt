@@ -1,4 +1,4 @@
-googlevideo.com
+ytimg.com
 i.ytimg.com
 youtube.com
 *.ytimg.com

@@ -1,5 +1,5 @@
 @echo off
-set "LOCAL_VERSION=1.8.5"
+set "LOCAL_VERSION=1.9.1"
 
 :: External commands
 if "%~1"=="status_zapret" (
@@ -9,11 +9,14 @@ if "%~1"=="status_zapret" (
 )
 
 if "%~1"=="check_updates" (
-    if not "%~2"=="soft" (
-        start /b service check_updates soft
-    ) else (
-        call :service_check_updates soft
+    if exist "%~dp0utils\check_updates.enabled" (
+        if not "%~2"=="soft" (
+            start /b service check_updates soft
+        ) else (
+            call :service_check_updates soft
+        )
     )
+
     exit /b
 )
 
@@ -22,10 +25,17 @@ if "%~1"=="load_game_filter" (
     exit /b
 )
 
-
 if "%1"=="admin" (
+    call :check_command chcp
+    call :check_command find
+    call :check_command findstr
+    call :check_command netsh
+
     echo Started with admin rights
 ) else (
+    call :check_extracted
+    call :check_command powershell
+
     echo Requesting admin rights...
     powershell -Command "Start-Process 'cmd.exe' -ArgumentList '/c \"\"%~f0\" admin\"' -Verb RunAs"
     exit
@@ -38,6 +48,7 @@ setlocal EnableDelayedExpansion
 cls
 call :ipset_switch_status
 call :game_switch_status
+call :check_updates_switch_status
 
 set "menu_choice=null"
 echo =========  v!LOCAL_VERSION!  =========
@@ -46,20 +57,24 @@ echo 2. Remove Services
 echo 3. Check Status
 echo 4. Run Diagnostics
 echo 5. Check Updates
-echo 6. Switch Game Filter (%GameFilterStatus%)
-echo 7. Switch ipset (%IPsetStatus%)
-echo 8. Update ipset list
+echo 6. Switch Check Updates (%CheckUpdatesStatus%)
+echo 7. Switch Game Filter (%GameFilterStatus%)
+echo 8. Switch ipset (%IPsetStatus%)
+echo 9. Update ipset list
+echo 10. Run Tests
 echo 0. Exit
-set /p menu_choice=Enter choice (0-8): 
+set /p menu_choice=Enter choice (0-9): 
 
 if "%menu_choice%"=="1" goto service_install
 if "%menu_choice%"=="2" goto service_remove
 if "%menu_choice%"=="3" goto service_status
 if "%menu_choice%"=="4" goto service_diagnostics
 if "%menu_choice%"=="5" goto service_check_updates
-if "%menu_choice%"=="6" goto game_switch
-if "%menu_choice%"=="7" goto ipset_switch
-if "%menu_choice%"=="8" goto ipset_update
+if "%menu_choice%"=="6" goto check_updates_switch
+if "%menu_choice%"=="7" goto game_switch
+if "%menu_choice%"=="8" goto ipset_switch
+if "%menu_choice%"=="9" goto ipset_update
+if "%menu_choice%"=="10" goto run_tests
 if "%menu_choice%"=="0" exit /b
 goto menu
 
@@ -82,13 +97,18 @@ if !errorlevel!==0 (
 
 call :test_service zapret
 call :test_service WinDivert
+
+set "BIN_PATH=%~dp0bin\"
+if not exist "%BIN_PATH%\*.sys" (
+    call :PrintRed "WinDivert64.sys file NOT found."
+)
 echo:
 
 tasklist /FI "IMAGENAME eq winws.exe" | find /I "winws.exe" > nul
 if !errorlevel!==0 (
-    call :PrintGreen "Bypass (winws.exe) is ACTIVE"
+    call :PrintGreen "Bypass (winws.exe) is RUNNING."
 ) else (
-    call :PrintRed "Bypass (winws.exe) NOT FOUND"
+    call :PrintRed "Bypass (winws.exe) is NOT running."
 )
 
 pause
@@ -300,7 +320,7 @@ set "GITHUB_RELEASE_URL=https://github.com/Flowseal/zapret-discord-youtube/relea
 set "GITHUB_DOWNLOAD_URL=https://github.com/Flowseal/zapret-discord-youtube/releases/latest/download/zapret-discord-youtube-"
 
 :: Get the latest version from GitHub
-for /f "delims=" %%A in ('powershell -command "(Invoke-WebRequest -Uri \"%GITHUB_VERSION_URL%\" -Headers @{\"Cache-Control\"=\"no-cache\"} -TimeoutSec 5).Content.Trim()" 2^>nul') do set "GITHUB_VERSION=%%A"
+for /f "delims=" %%A in ('powershell -command "(Invoke-WebRequest -Uri \"%GITHUB_VERSION_URL%\" -Headers @{\"Cache-Control\"=\"no-cache\"} -UseBasicParsing -TimeoutSec 5).Content.Trim()" 2^>nul') do set "GITHUB_VERSION=%%A"
 
 :: Error handling
 if not defined GITHUB_VERSION (
@@ -372,6 +392,16 @@ if !proxyEnabled!==1 (
     call :PrintGreen "Proxy check passed"
 )
 echo:
+
+:: Check netsh
+where netsh >nul 2>nul
+if !errorlevel! neq 0  (
+    call :PrintRed "[X] netsh command not found, check your PATH variable"
+	echo PATH = "%PATH%"
+	echo:
+	pause
+	goto menu
+)
 
 :: TCP timestamps check
 netsh interface tcp show global | findstr /i "timestamps" | findstr /i "enabled" > nul
@@ -448,10 +478,25 @@ if !errorlevel!==0 (
 )
 echo:
 
+:: WinDivert64.sys file
+set "BIN_PATH=%~dp0bin\"
+if not exist "%BIN_PATH%\*.sys" (
+    call :PrintRed "WinDivert64.sys file NOT found."
+)
+echo:
+
 :: VPN
+set "VPN_SERVICES="
 sc query | findstr /I "VPN" > nul
 if !errorlevel!==0 (
-    call :PrintYellow "[?] Some VPN services found. Some VPNs can conflict with zapret"
+    for /f "tokens=2 delims=:" %%A in ('sc query ^| findstr /I "VPN"') do (
+        if not defined VPN_SERVICES (
+            set "VPN_SERVICES=!VPN_SERVICES!%%A"
+        ) else (
+            set "VPN_SERVICES=!VPN_SERVICES!,%%A"
+        )
+    )
+    call :PrintYellow "[?] VPN services found:!VPN_SERVICES!. Some VPNs can conflict with zapret"
     call :PrintYellow "Make sure that all VPNs are disabled"
 ) else (
     call :PrintGreen "VPN check passed"
@@ -618,7 +663,7 @@ goto menu
 :game_switch_status
 chcp 437 > nul
 
-set "gameFlagFile=%~dp0bin\game_filter.enabled"
+set "gameFlagFile=%~dp0utils\game_filter.enabled"
 
 if exist "%gameFlagFile%" (
     set "GameFilterStatus=enabled"
@@ -648,15 +693,52 @@ pause
 goto menu
 
 
+:: CHECK UPDATES SWITCH =================
+:check_updates_switch_status
+chcp 437 > nul
+
+set "checkUpdatesFlag=%~dp0utils\check_updates.enabled"
+
+if exist "%checkUpdatesFlag%" (
+    set "CheckUpdatesStatus=enabled"
+) else (
+    set "CheckUpdatesStatus=disabled"
+)
+exit /b
+
+
+:check_updates_switch
+chcp 437 > nul
+cls
+
+if not exist "%checkUpdatesFlag%" (
+    echo Enabling check updates...
+    echo ENABLED > "%checkUpdatesFlag%"
+) else (
+    echo Disabling check updates...
+    del /f /q "%checkUpdatesFlag%"
+)
+
+pause
+goto menu
+
+
 :: IPSET SWITCH =======================
 :ipset_switch_status
 chcp 437 > nul
 
-findstr /R "^203\.0\.113\.113/32$" "%~dp0lists\ipset-all.txt" >nul
-if !errorlevel!==0 (
-    set "IPsetStatus=empty"
+set "listFile=%~dp0lists\ipset-all.txt"
+for /f %%i in ('type "%listFile%" 2^>nul ^| find /c /v ""') do set "lineCount=%%i"
+
+if !lineCount!==0 (
+    set "IPsetStatus=any"
 ) else (
-    set "IPsetStatus=loaded"
+    findstr /R "^203\.0\.113\.113/32$" "%listFile%" >nul
+    if !errorlevel!==0 (
+        set "IPsetStatus=none"
+    ) else (
+        set "IPsetStatus=loaded"
+    )
 )
 exit /b
 
@@ -668,30 +750,39 @@ cls
 set "listFile=%~dp0lists\ipset-all.txt"
 set "backupFile=%listFile%.backup"
 
-findstr /R "^203\.0\.113\.113/32$" "%listFile%" >nul
-if !errorlevel!==0 (
-    echo Enabling ipset based bypass...
-
-    if exist "%backupFile%" (
-        del /f /q "%listFile%"
-        ren "%backupFile%" "ipset-all.txt"
-    ) else (
-        echo Error: no backup to restore. Update list from service menu by yourself
-    )
-
-) else (
-    echo Disabling ipset based bypass...
-
+if "%IPsetStatus%"=="loaded" (
+    echo Switching to none mode...
+    
     if not exist "%backupFile%" (
         ren "%listFile%" "ipset-all.txt.backup"
     ) else (
         del /f /q "%backupFile%"
         ren "%listFile%" "ipset-all.txt.backup"
     )
-
+    
     >"%listFile%" (
         echo 203.0.113.113/32
     )
+    
+) else if "%IPsetStatus%"=="none" (
+    echo Switching to any mode...
+    
+    >"%listFile%" (
+        rem Creating empty file
+    )
+    
+) else if "%IPsetStatus%"=="any" (
+    echo Switching to loaded mode...
+    
+    if exist "%backupFile%" (
+        del /f /q "%listFile%"
+        ren "%backupFile%" "ipset-all.txt"
+    ) else (
+        echo Error: no backup to restore. Update list from service menu first
+        pause
+        goto menu
+    )
+    
 )
 
 pause
@@ -725,6 +816,29 @@ echo Finished
 pause
 goto menu
 
+
+:: RUN TESTS =============================
+:run_tests
+chcp 65001 >nul
+cls
+
+:: Require PowerShell 2.0+
+powershell -NoProfile -Command "if ($PSVersionTable -and $PSVersionTable.PSVersion -and $PSVersionTable.PSVersion.Major -ge 2) { exit 0 } else { exit 1 }" >nul 2>&1
+if %errorLevel% neq 0 (
+    echo PowerShell 2.0 or newer is required.
+    echo Please upgrade PowerShell and rerun this script.
+    echo.
+    pause
+    goto menu
+)
+
+echo Starting configuration tests in PowerShell window...
+echo.
+start "" powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0utils\test zapret.ps1"
+pause
+goto menu
+
+
 :: Utility functions
 
 :PrintGreen
@@ -738,3 +852,25 @@ exit /b
 :PrintYellow
 powershell -Command "Write-Host \"%~1\" -ForegroundColor Yellow"
 exit /b
+
+:check_command
+where %1 >nul 2>&1
+if %errorLevel% neq 0 (
+    echo [ERROR] %1 not found in PATH
+    echo Fix your PATH variable with instructions here https://github.com/Flowseal/zapret-discord-youtube/issues/7490
+    pause
+    exit /b 1
+)
+exit /b 0
+
+:check_extracted
+set "extracted=1"
+
+if not exist "%~dp0bin\" set "extracted=0"
+
+if "%extracted%"=="0" (
+    echo Zapret must be extracted from archive first or bin folder not found for some reason
+    pause
+    exit
+)
+exit /b 0
