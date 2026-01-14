@@ -1,5 +1,6 @@
 ytimg.com
 i.ytimg.com
+i1.ytimg.com
 youtube.com
 *.ytimg.com
 ytimg.l.google.com
