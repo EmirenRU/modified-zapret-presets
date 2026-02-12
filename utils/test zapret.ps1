@@ -76,7 +76,8 @@ function Convert-Target {
 }
 
 function Get-DpiSuite {
-    # Suite sourced from monitor.ps1 (DPI TCP 16-20)
+    # Suite sourced from https://github.com/hyperion-cs/dpi-checkers (Apache-2.0 license)
+    # Original copyright retained from dpi-checkers repository
     return @(
         @{ Id = "US.CF-01"; Provider = "Cloudflare"; Url = "https://cdn.cookielaw.org/scripttemplates/202501.2.0/otBannerSdk.js"; Times = 1 }
         @{ Id = "US.CF-02"; Provider = "Cloudflare"; Url = "https://genshin.jmp.blue/characters/all#"; Times = 1 }
@@ -101,8 +102,6 @@ function Get-DpiSuite {
         @{ Id = "DE.CNTB-01"; Provider = "Contabo"; Url = "https://cloudlets.io/wp-content/themes/Avada/includes/lib/assets/fonts/fontawesome/webfonts/fa-solid-900.woff2"; Times = 1 }
         @{ Id = "FR.SW-01"; Provider = "Scaleway"; Url = "https://renklisigorta.com.tr/teklif-al"; Times = 1 }
         @{ Id = "US.CNST-01"; Provider = "Constant"; Url = "https://cdn.xuansiwei.com/common/lib/font-awesome/4.7.0/fontawesome-webfont.woff2?v=4.7.0"; Times = 1 }
-        # Local test payload (requires: run make-test-payload.ps1 and serve via python -m http.server 8000)
-        # @{ Id = "LOCAL.TEST-16K"; Provider = "LocalTest"; Url = "http://127.0.0.1:8000/test-payload-16384b.bin"; Times = 1 }
     )
 }
 
@@ -182,7 +181,7 @@ function Invoke-DpiSuite {
             if ($text -match '^(?<code>\d{3})\s+(?<size>\d+)$') {
                 $code = $matches['code']
                 $sizeBytes = [int64]$matches['size']
-            } elseif ($text -match 'not supported|does not support') {
+            } elseif (($exit -eq 35) -or ($text -match "not supported|does not support|protocol\s+'.+'\s+not\s+supported|protocol\s+.+\s+not\s+supported|unsupported protocol|TLS.not supported|Unrecognized option|Unknown option|unsupported option|unsupported feature|schannel|SSL")) {
                 $code = "UNSUP"
             } elseif ($text) {
                 $code = "ERR"
@@ -246,7 +245,36 @@ function Invoke-DpiSuite {
 
     $results = @()
     foreach ($rs in $runspaces) {
-        $results += $rs.Powershell.EndInvoke($rs.Handle)
+        # Wait for the runspace to complete with a small grace period beyond curl's timeout
+        try {
+            $waitMs = ([int]$TimeoutSeconds + 5) * 1000
+            $handle = $rs.Handle
+            if ($handle -and $handle.AsyncWaitHandle) {
+                $completed = $handle.AsyncWaitHandle.WaitOne($waitMs)
+                if (-not $completed) {
+                    Write-Host "[WARN] Runspace for target timed out after $waitMs ms; stopping runspace..." -ForegroundColor Yellow
+                    try { $rs.Powershell.Stop() } catch {}
+                }
+            }
+        } catch {
+            # ignore wait errors and attempt to EndInvoke
+        }
+
+        try {
+            $results += $rs.Powershell.EndInvoke($rs.Handle)
+        } catch {
+            Write-Host "[WARN] EndInvoke failed for a runspace; treating as failure." -ForegroundColor Yellow
+            $failedLine = [PSCustomObject]@{
+                TestLabel  = 'RUNSPACE'
+                Code       = 'ERR'
+                SizeBytes  = 0
+                SizeKB     = 0
+                Status     = 'FAIL'
+                Color      = 'Red'
+                Warned     = $false
+            }
+            $results += [PSCustomObject]@{ TargetId = 'UNKNOWN'; Provider = 'UNKNOWN'; Lines = @($failedLine); Warned = $false }
+        }
         $rs.Powershell.Dispose()
     }
     $runspacePool.Close()
@@ -355,7 +383,7 @@ $dpiTargets = Build-DpiTargets -CustomUrl $dpiCustomUrl
 # Config
 $targetDir = $rootDir
 if (-not $targetDir) { $targetDir = Split-Path -Parent $MyInvocation.MyCommand.Path }
-$batFiles = Get-ChildItem -Path $targetDir -Filter "general*.bat" | Sort-Object Name
+$batFiles = Get-ChildItem -Path $targetDir -Filter "*.bat" | Where-Object { $_.Name -notlike "service*" } | Sort-Object { [Regex]::Replace($_.Name, "(\d+)", { $args[0].Value.PadLeft(8, "0") }) }
 
 $globalResults = @()
 
@@ -477,8 +505,6 @@ if ($testType -eq 'standard') {
     if (-not $maxNameLen -or $maxNameLen -lt 10) { $maxNameLen = 10 }
 }
 
-Write-Host "[WARNING] Tests may take several minutes to complete. Please wait..." -ForegroundColor Yellow
-
 # Ensure we have configs to run
 if (-not $batFiles -or $batFiles.Count -eq 0) {
     Write-Host "[ERROR] No general*.bat files found" -ForegroundColor Red
@@ -518,17 +544,17 @@ function Restore-WinwsSnapshot {
         if ($current -and $current -contains $p.CommandLine) { continue }
 
         $exe = $p.ExecutablePath
-        $args = ""
+        $processArgs = ""
         if ($p.CommandLine) {
             $quotedExe = '"' + $exe + '"'
             if ($p.CommandLine.StartsWith($quotedExe)) {
-                $args = $p.CommandLine.Substring($quotedExe.Length).Trim()
+                $processArgs = $p.CommandLine.Substring($quotedExe.Length).Trim()
             } elseif ($p.CommandLine.StartsWith($exe)) {
-                $args = $p.CommandLine.Substring($exe.Length).Trim()
+                $processArgs = $p.CommandLine.Substring($exe.Length).Trim()
             }
         }
 
-        Start-Process -FilePath $exe -ArgumentList $args -WorkingDirectory (Split-Path $exe -Parent) -WindowStyle Minimized | Out-Null
+        Start-Process -FilePath $exe -ArgumentList $processArgs -WorkingDirectory (Split-Path $exe -Parent) -WindowStyle Minimized | Out-Null
     }
 }
 
@@ -549,6 +575,7 @@ try {
         # Create flag file to indicate ipset was switched
         "" | Out-File -FilePath $ipsetFlagFile -Encoding UTF8
     }
+    Write-Host "[WARNING] Tests may take several minutes to complete. Please wait..." -ForegroundColor Yellow
 
     $configNum = 0
     foreach ($file in $batFiles) {
@@ -588,13 +615,27 @@ try {
                     @{ Label = "TLS1.3"; Args = @("--tlsv1.3", "--tls-max", "1.3") }
                 )
 
-                $baseArgs = @("-I", "-s", "-m", $curlTimeoutSeconds, "-o", "NUL", "-w", "%{http_code}")
+                $baseArgs = @("-I", "-s", "-m", $curlTimeoutSeconds, "-o", "NUL", "-w", "%{http_code}", "--show-error")
                 foreach ($test in $tests) {
                     try {
                         $curlArgs = $baseArgs + $test.Args
-                        $output = & curl.exe @curlArgs $t.Url 2>&1
-                        $text = ($output | Out-String).Trim()
-                        $unsupported = $text -match "does not support|not supported"
+                        $stderr = $null
+                        $output = & curl.exe @curlArgs $t.Url 2>&1 | ForEach-Object {
+                            if ($_ -is [System.Management.Automation.ErrorRecord]) {
+                                $stderr += $_.Exception.Message + " "
+                            } else {
+                                $_
+                            }
+                        }
+                        $httpCode = ($output | Out-String).Trim()
+                        
+                        $dnsHijack = ($stderr -match "Could not resolve host|certificate|SSL certificate problem|self[- ]?signed|certificate verify failed|unable to get local issuer certificate")                        
+                        if ($dnsHijack) {
+                            $httpPieces += "$($test.Label):SSL  "
+                            continue
+                        }
+                        
+                        $unsupported = (($LASTEXITCODE -eq 35) -or ($stderr -match "does not support|not supported|protocol\s+'?.+'?\s+not\s+supported|unsupported protocol|TLS.*not supported|Unrecognized option|Unknown option|unsupported option|unsupported feature|schannel"))
                         if ($unsupported) {
                             $httpPieces += "$($test.Label):UNSUP"
                             continue
@@ -649,7 +690,26 @@ try {
 
         $targetResults = @()
         foreach ($rs in $runspaces) {
-            $targetResults += $rs.Powershell.EndInvoke($rs.Handle)
+            try {
+                $waitMs = ([int]$curlTimeoutSeconds + 5) * 1000
+                $handle = $rs.Handle
+                if ($handle -and $handle.AsyncWaitHandle) {
+                    $completed = $handle.AsyncWaitHandle.WaitOne($waitMs)
+                    if (-not $completed) {
+                        Write-Host "[WARN] Runspace for target timed out after $waitMs ms; stopping runspace..." -ForegroundColor Yellow
+                        try { $rs.Powershell.Stop() } catch {}
+                    }
+                }
+            } catch {
+                # ignore
+            }
+
+            try {
+                $targetResults += $rs.Powershell.EndInvoke($rs.Handle)
+            } catch {
+                Write-Host "[WARN] EndInvoke failed for a runspace; treating as failure." -ForegroundColor Yellow
+                $targetResults += [PSCustomObject]@{ Name = 'UNKNOWN'; HttpTokens = @('HTTP:ERROR'); PingResult = 'Timeout'; IsUrl = $true }
+            }
             $rs.Powershell.Dispose()
         }
 
@@ -669,6 +729,7 @@ try {
                 foreach ($tok in $res.HttpTokens) {
                     $tokColor = "Green"
                     if ($tok -match "UNSUP") { $tokColor = "Yellow" }
+                    elseif ($tok -match "SSL") { $tokColor = "Red" }
                     elseif ($tok -match "ERR") { $tokColor = "Red" }
                     Write-Host " $tok" -NoNewline -ForegroundColor $tokColor
                 }
@@ -718,6 +779,7 @@ try {
                 if ($targetRes.IsUrl) {
                     foreach ($tok in $targetRes.HttpTokens) {
                         if ($tok -match "OK") { $analytics[$config].OK++ }
+                        elseif ($tok -match "SSL") { $analytics[$config].ERROR++ }
                         elseif ($tok -match "ERROR") { $analytics[$config].ERROR++ }
                         elseif ($tok -match "UNSUP") { $analytics[$config].UNSUP++ }
                     }
@@ -752,12 +814,24 @@ try {
     # Determine best strategy
     $bestConfig = $null
     $maxScore = 0
+    $maxPing = -1
     foreach ($config in $analytics.Keys) {
         $a = $analytics[$config]
         $score = $a.OK
-        $score -gt $maxScore
-        $maxScore = $score
-        $bestConfig = $config
+        $pingScore = 0
+        if ($a.ContainsKey('PingOK')) {
+            $pingScore = $a.PingOK
+        }
+        if ($score -gt $maxScore) {
+            $maxScore = $score
+            $maxPing = $pingScore
+            $bestConfig = $config
+        } elseif ($score -eq $maxScore) {
+            if ($pingScore -gt $maxPing) {
+                $maxPing = $pingScore
+                $bestConfig = $config
+            }
+        }
     }
     Write-Host ""
     Write-Host "Best config: $bestConfig" -ForegroundColor Green
@@ -818,7 +892,6 @@ try {
         Set-IpsetMode -mode "restore"
     }
     Remove-Item -Path $ipsetFlagFile -ErrorAction SilentlyContinue
-    throw  # Re-throw the error
 } finally {
     Stop-Zapret
     Restore-WinwsSnapshot -snapshot $originalWinws
