@@ -196,6 +196,7 @@ ecommerce.epicgames.com
 lightswitch-public-service-prod06.ol.epicgames.com
 lightswitch-public-service-prod.ol.epicgames.com
 service.ol.epicgames.com
+ir-sdk.guardease.com
 account-public-service-prod03.ol.epicgames.com
 account-public-service-prod.ol.epicgames.com
 launcher-public-service-prod06.ol.epicgames.com

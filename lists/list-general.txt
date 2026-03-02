@@ -480,7 +480,6 @@ annacdn.cc
 gothic-library.ru
 rutracker.cc
 vndb.org
-amazonaws.com
 redditspace.com
 cloudflare-test.com
 youtubeembeddedplayer.googleapis.com
