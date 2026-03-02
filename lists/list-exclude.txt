@@ -186,6 +186,7 @@ xboxgamepass.com
 xboxgamestudios.com
 xboxlive.com
 xboxone.com
+
 xboxone.eu
 xboxplayanywhere.com
 xboxservices.com
@@ -197,3 +198,15 @@ microsoft.com
 outlook.com
 minecraft.net
 live.com
+hexed.it
+kassa.games
+mozilla.org
+steamstatic.com
+kurogame.xyz
+kurogame.net
+live.com
+microsoft.com
+microsoftonline.com
+minecraft.net
+xbox.com
+xboxlive.com
