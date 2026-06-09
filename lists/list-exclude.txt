@@ -21,6 +21,10 @@ aeroflot.ru
 akamaihd.net
 akamaitechnologies.com
 akamaized.net
+17996cdn.com
+battleye.com
+escapefromtarkov.com
+escapefromtarkov.ru
 aki-game.net
 aliexpress.ru
 anticheatexpert.com
@@ -31,6 +35,9 @@ api.steampowered.com
 apple.com
 apps.microsoft.com
 artstation.com
+bluearchive.com
+haoplay.com
+bluearchive.jp
 as.gryphline.com
 astrum-entertainment.ru
 auth.xboxlive.com
